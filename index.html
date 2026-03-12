@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ChargeDIU — Campus Charger Sharing</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #1a3a2a;
+    --accent: #3dbe7a;
+    --accent-light: #d4f4e3;
+    --bg: #f7f9f7;
+    --surface: #ffffff;
+    --text: #1a2820;
+    --muted: #5a7266;
+    --border: #dde8e3;
+    --danger: #c0392b;
+    --warning: #e67e22;
+    --radius: 14px;
+    --shadow: 0 2px 16px rgba(30,60,40,0.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  h1,h2,h3 { font-family: 'DM Serif Display', serif; }
+
+  /* ---- NAV ---- */
+  nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 36px; height: 36px; background: var(--primary);
+    border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  }
+  .logo-icon svg { width: 20px; height: 20px; fill: var(--accent); }
+  .logo-text { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--primary); }
+  .logo-sub { font-size: 11px; color: var(--muted); margin-left: 2px; letter-spacing: .5px; }
+  .nav-links { display: flex; gap: 8px; align-items: center; }
+  .nav-links a {
+    font-size: 14px; font-weight: 500; color: var(--muted); text-decoration: none;
+    padding: 7px 14px; border-radius: 8px; transition: all .2s;
+    cursor: pointer;
+  }
+  .nav-links a:hover { background: var(--accent-light); color: var(--primary); }
+  .btn-nav {
+    background: var(--primary); color: #fff; padding: 8px 18px;
+    border-radius: 8px; font-size: 14px; font-weight: 500; border: none; cursor: pointer;
+    transition: background .2s;
+  }
+  .btn-nav:hover { background: #2a5040; }
+
+  /* ---- STATUS BAR ---- */
+  #status-bar {
+    background: var(--primary);
+    color: #fff;
+    text-align: center;
+    font-size: 13px;
+    padding: 8px;
+    letter-spacing: .3px;
+  }
+  #status-bar.closed { background: #7a3535; }
+  #status-dot {
+    display: inline-block; width: 8px; height: 8px;
+    border-radius: 50%; margin-right: 6px; vertical-align: middle;
+  }
+  .dot-open { background: var(--accent); animation: pulse 2s infinite; }
+  .dot-closed { background: #e07070; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+  /* ---- PAGES ---- */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ---- HERO ---- */
+  .hero {
+    max-width: 900px; margin: 64px auto; padding: 0 24px; text-align: center;
+  }
+  .hero h1 { font-size: clamp(32px,5vw,54px); color: var(--primary); line-height: 1.15; margin-bottom: 16px; }
+  .hero p { font-size: 17px; color: var(--muted); max-width: 560px; margin: 0 auto 40px; line-height: 1.7; }
+  .charger-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px; max-width: 700px; margin: 0 auto 56px;
+  }
+  @media(max-width:600px){ .charger-grid { grid-template-columns: repeat(2,1fr); } }
+  .charger-card {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius); padding: 24px 12px; text-align: center;
+    cursor: pointer; transition: all .25s; position: relative; overflow: hidden;
+  }
+  .charger-card:hover { border-color: var(--accent); transform: translateY(-3px); box-shadow: var(--shadow); }
+  .charger-card.selected { border-color: var(--accent); background: var(--accent-light); }
+  .charger-icon { font-size: 36px; margin-bottom: 10px; display: block; }
+  .charger-name { font-size: 13px; font-weight: 600; color: var(--primary); }
+  .charger-price { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .price-badge {
+    background: var(--primary); color: #fff;
+    font-size: 11px; font-weight: 600;
+    padding: 3px 8px; border-radius: 20px;
+    position: absolute; top: 10px; right: 10px;
+  }
+
+  .segment-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    max-width: 700px; margin: 0 auto;
+  }
+  @media(max-width:500px){ .segment-row { grid-template-columns: 1fr; } }
+  .segment-card {
+    background: var(--surface); border: 1.5px solid var(--border);
+    border-radius: var(--radius); padding: 32px 24px; text-align: center; cursor: pointer;
+    transition: all .25s;
+  }
+  .segment-card:hover { border-color: var(--accent); box-shadow: var(--shadow); }
+  .segment-emoji { font-size: 40px; margin-bottom: 14px; }
+  .segment-card h3 { font-size: 20px; color: var(--primary); margin-bottom: 8px; }
+  .segment-card p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+  .btn-primary {
+    display: inline-block; background: var(--accent); color: var(--primary);
+    font-weight: 600; font-size: 14px; padding: 11px 24px;
+    border-radius: 10px; border: none; cursor: pointer; margin-top: 18px;
+    transition: all .2s; text-decoration: none;
+  }
+  .btn-primary:hover { background: #2daa68; }
+  .btn-outline {
+    display: inline-block; background: transparent; color: var(--primary);
+    font-weight: 600; font-size: 14px; padding: 10px 24px;
+    border-radius: 10px; border: 2px solid var(--primary); cursor: pointer; margin-top: 18px;
+    transition: all .2s;
+  }
+  .btn-outline:hover { background: var(--primary); color: #fff; }
+
+  /* ---- INNER PAGES ---- */
+  .page-wrap { max-width: 820px; margin: 0 auto; padding: 48px 24px; }
+  .page-header { margin-bottom: 36px; }
+  .page-header h2 { font-size: 30px; color: var(--primary); margin-bottom: 8px; }
+  .page-header p { font-size: 15px; color: var(--muted); }
+  .back-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 14px; color: var(--muted); cursor: pointer; margin-bottom: 24px;
+    background: none; border: none; padding: 0;
+  }
+  .back-btn:hover { color: var(--primary); }
+
+  /* ---- FORMS ---- */
+  .form-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 32px; margin-bottom: 20px;
+    box-shadow: var(--shadow);
+  }
+  .form-card h3 { font-size: 18px; color: var(--primary); margin-bottom: 20px; }
+  .form-group { margin-bottom: 18px; }
+  .form-group label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 6px; }
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100%; padding: 10px 14px;
+    border: 1.5px solid var(--border); border-radius: 9px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px;
+    color: var(--text); background: var(--bg); outline: none;
+    transition: border-color .2s;
+  }
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus { border-color: var(--accent); background: #fff; }
+  .form-group textarea { resize: vertical; min-height: 80px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media(max-width:500px){ .form-row { grid-template-columns: 1fr; } }
+
+  .photo-upload {
+    border: 2px dashed var(--border); border-radius: var(--radius);
+    padding: 32px; text-align: center; cursor: pointer; transition: all .2s;
+    background: var(--bg);
+  }
+  .photo-upload:hover { border-color: var(--accent); background: var(--accent-light); }
+  .photo-upload input { display: none; }
+  .photo-upload-icon { font-size: 32px; margin-bottom: 10px; }
+  .photo-upload p { font-size: 14px; color: var(--muted); }
+  .photo-upload span { font-size: 12px; color: var(--accent); font-weight: 500; }
+  .photo-preview {
+    margin-top: 12px; display: none; border-radius: 10px; overflow: hidden;
+  }
+  .photo-preview img { width: 100%; max-height: 180px; object-fit: cover; border-radius: 10px; }
+
+  .subscription-options { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 8px; }
+  @media(max-width:500px){ .subscription-options { grid-template-columns: 1fr; } }
+  .sub-opt {
+    border: 2px solid var(--border); border-radius: 12px; padding: 16px 12px;
+    text-align: center; cursor: pointer; transition: all .2s;
+  }
+  .sub-opt:hover { border-color: var(--accent); }
+  .sub-opt.selected { border-color: var(--accent); background: var(--accent-light); }
+  .sub-opt .duration { font-size: 15px; font-weight: 600; color: var(--primary); }
+  .sub-opt .sub-price { font-size: 20px; font-weight: 700; color: var(--accent); margin: 6px 0; }
+  .sub-opt .sub-desc { font-size: 12px; color: var(--muted); }
+
+  .charger-type-opts { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
+  @media(max-width:500px){ .charger-type-opts { grid-template-columns: 1fr; } }
+  .type-opt {
+    border: 2px solid var(--border); border-radius: 10px; padding: 12px;
+    display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all .2s;
+  }
+  .type-opt:hover { border-color: var(--accent); }
+  .type-opt.selected { border-color: var(--accent); background: var(--accent-light); }
+  .type-opt-icon { font-size: 22px; }
+  .type-opt-name { font-size: 13px; font-weight: 500; color: var(--primary); }
+  .type-opt-detail { font-size: 11px; color: var(--muted); }
+
+  /* ---- LISTINGS ---- */
+  .listings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap: 18px; }
+  .listing-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); transition: transform .2s;
+  }
+  .listing-card:hover { transform: translateY(-2px); }
+  .listing-img { height: 140px; background: var(--accent-light); display: flex; align-items: center; justify-content: center; font-size: 48px; }
+  .listing-img img { width: 100%; height: 100%; object-fit: cover; }
+  .listing-body { padding: 14px 16px; }
+  .listing-type { font-size: 11px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+  .listing-name { font-size: 15px; font-weight: 600; color: var(--primary); margin-bottom: 4px; }
+  .listing-loc { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+  .listing-price-row { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+  .listing-price { font-size: 16px; font-weight: 700; color: var(--primary); }
+  .listing-price span { font-size: 11px; font-weight: 400; color: var(--muted); }
+  .btn-borrow {
+    background: var(--primary); color: #fff; border: none; border-radius: 8px;
+    font-size: 13px; font-weight: 500; padding: 7px 14px; cursor: pointer; transition: background .2s;
+  }
+  .btn-borrow:hover { background: #2a5040; }
+  .online-dot { display: inline-block; width: 7px; height: 7px; background: var(--accent); border-radius: 50%; margin-right: 4px; animation: pulse 2s infinite; }
+
+  /* ---- CHECKIN / SUCCESS ---- */
+  .checkin-wrap { max-width: 500px; margin: 0 auto; }
+  .info-box {
+    background: var(--accent-light); border: 1px solid #b3e8cf; border-radius: 10px;
+    padding: 14px 18px; margin-bottom: 20px; font-size: 14px; color: var(--primary);
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .info-box .ib-icon { font-size: 18px; flex-shrink: 0; }
+  .warning-box {
+    background: #fff5e8; border: 1px solid #f5d08a; border-radius: 10px;
+    padding: 14px 18px; margin-bottom: 20px; font-size: 14px; color: #7a4a10;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .success-screen { text-align: center; padding: 48px 24px; }
+  .success-icon { font-size: 64px; margin-bottom: 20px; }
+  .success-screen h2 { font-size: 28px; color: var(--primary); margin-bottom: 12px; }
+  .success-screen p { font-size: 15px; color: var(--muted); line-height: 1.7; max-width: 400px; margin: 0 auto 28px; }
+  .frozen-screen { text-align: center; padding: 48px 24px; }
+  .frozen-icon { font-size: 64px; margin-bottom: 20px; }
+  .frozen-screen h2 { font-size: 28px; color: var(--danger); margin-bottom: 12px; }
+  .frozen-screen p { font-size: 15px; color: var(--muted); line-height: 1.7; max-width: 400px; margin: 0 auto 28px; }
+
+  /* ---- RENTER DASHBOARD ---- */
+  .dashboard-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; margin-bottom: 28px; }
+  @media(max-width:500px){ .dashboard-stats { grid-template-columns: repeat(2,1fr); } }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
+  .stat-label { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  .stat-val { font-size: 24px; font-weight: 700; color: var(--primary); }
+  .stat-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .toggle-section {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 20px 24px; margin-bottom: 16px; display: flex;
+    align-items: center; justify-content: space-between;
+  }
+  .toggle-section h4 { font-size: 15px; color: var(--primary); }
+  .toggle-section p { font-size: 13px; color: var(--muted); }
+  .toggle { position: relative; display: inline-block; width: 46px; height: 26px; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .slider-toggle {
+    position: absolute; cursor: pointer; top:0;left:0;right:0;bottom:0;
+    background: var(--border); border-radius: 26px; transition: .3s;
+  }
+  .slider-toggle:before {
+    position: absolute; content: ""; width: 20px; height: 20px;
+    left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s;
+  }
+  input:checked + .slider-toggle { background: var(--accent); }
+  input:checked + .slider-toggle:before { transform: translateX(20px); }
+
+  /* ---- FOOTER ---- */
+  footer {
+    background: var(--primary); color: rgba(255,255,255,.6);
+    text-align: center; padding: 28px; font-size: 13px; margin-top: 80px;
+  }
+  footer strong { color: rgba(255,255,255,.9); }
+
+  /* ---- FILTER ROW ---- */
+  .filter-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px; }
+  .filter-btn {
+    padding: 7px 16px; border-radius: 20px; border: 1.5px solid var(--border);
+    font-size: 13px; font-weight: 500; color: var(--muted); background: var(--surface); cursor: pointer; transition: all .2s;
+  }
+  .filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .filter-btn:hover:not(.active) { border-color: var(--accent); color: var(--primary); }
+
+  .tag { display: inline-block; background: var(--accent-light); color: var(--primary); font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; margin-bottom: 6px; }
+
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 200;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+    display: none;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border-radius: var(--radius); padding: 28px;
+    max-width: 420px; width: 100%; position: relative;
+  }
+  .modal h3 { font-size: 20px; color: var(--primary); margin-bottom: 10px; }
+  .modal p { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
+  .modal-close {
+    position: absolute; top: 16px; right: 16px;
+    background: none; border: none; font-size: 20px; cursor: pointer; color: var(--muted);
+  }
+  .modal-btns { display: flex; gap: 10px; }
+  .modal-btns button { flex: 1; }
+</style>
+</head>
+<body>
+
+<!-- STATUS BAR -->
+<div id="status-bar">
+  <span id="status-dot" class="dot-open"></span>
+  <span id="status-text">Service is live · 8:00 AM – 8:00 PM</span>
+</div>
+
+<!-- NAV -->
+<nav>
+  <div class="logo" onclick="showPage('home')" style="cursor:pointer">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 2L4.09 12.79A1 1 0 005 14.5h6.5L10 22l9.5-11.5a1 1 0 00-.78-1.5H13L13 2z"/></svg>
+    </div>
+    <div>
+      <div class="logo-text">ChargeDIU</div>
+      <div class="logo-sub">DIU Campus · Charge Sharing</div>
+    </div>
+  </div>
+  <div class="nav-links">
+    <a onclick="showPage('browse')">Browse</a>
+    <a onclick="showPage('renter-register')">Rent Out</a>
+    <button class="btn-nav" onclick="showPage('borrower-checkin')">Borrow Now</button>
+  </div>
+</nav>
+
+<!-- ============ HOME PAGE ============ -->
+<div id="page-home" class="page active">
+  <div class="hero">
+    <h1>Charge up,<br>anywhere on campus.</h1>
+    <p>Connect with fellow students who have chargers to spare. Borrow what you need, rent out what you have. No hourly ticking — honest flat rates.</p>
+
+    <div class="charger-grid">
+      <div class="charger-card" onclick="filterAndBrowse('type-c')">
+        <div class="price-badge">৳15</div>
+        <span class="charger-icon">🔌</span>
+        <div class="charger-name">USB-C</div>
+        <div class="charger-price">Flat rate</div>
+      </div>
+      <div class="charger-card" onclick="filterAndBrowse('lightning')">
+        <div class="price-badge">৳20</div>
+        <span class="charger-icon">⚡</span>
+        <div class="charger-name">Lightning</div>
+        <div class="charger-price">Flat rate</div>
+      </div>
+      <div class="charger-card" onclick="filterAndBrowse('type-b')">
+        <div class="price-badge">৳10</div>
+        <span class="charger-icon">🔋</span>
+        <div class="charger-name">Micro USB</div>
+        <div class="charger-price">Flat rate</div>
+      </div>
+      <div class="charger-card" onclick="filterAndBrowse('laptop')">
+        <div class="price-badge">৳40</div>
+        <span class="charger-icon">💻</span>
+        <div class="charger-name">Laptop Round</div>
+        <div class="charger-price">Flat rate</div>
+      </div>
+    </div>
+
+    <div class="segment-row">
+      <div class="segment-card" onclick="showPage('borrower-checkin')">
+        <div class="segment-emoji">🎒</div>
+        <h3>Borrow a Charger</h3>
+        <p>Need a charge? Find an available charger near you right now on campus.</p>
+        <button class="btn-primary">Start Borrowing</button>
+      </div>
+      <div class="segment-card" onclick="showPage('renter-register')">
+        <div class="segment-emoji">💰</div>
+        <h3>Rent Out Yours</h3>
+        <p>Have a spare charger? List it and earn from fellow students — zero commission.</p>
+        <button class="btn-outline">Become a Renter</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ BROWSE PAGE ============ -->
+<div id="page-browse" class="page">
+  <div class="page-wrap">
+    <button class="back-btn" onclick="showPage('home')">← Back</button>
+    <div class="page-header">
+      <h2>Available Chargers</h2>
+      <p>All listings are live today — renters are physically on campus right now.</p>
+    </div>
+    <div class="filter-row">
+      <button class="filter-btn active" onclick="setFilter(this,'all')">All Types</button>
+      <button class="filter-btn" onclick="setFilter(this,'type-c')">🔌 USB-C</button>
+      <button class="filter-btn" onclick="setFilter(this,'lightning')">⚡ Lightning</button>
+      <button class="filter-btn" onclick="setFilter(this,'type-b')">🔋 Micro USB</button>
+      <button class="filter-btn" onclick="setFilter(this,'laptop')">💻 Laptop</button>
+    </div>
+    <div class="listings-grid" id="listings-container"></div>
+  </div>
+</div>
+
+<!-- ============ BORROWER CHECK-IN ============ -->
+<div id="page-borrower-checkin" class="page">
+  <div class="page-wrap">
+    <button class="back-btn" onclick="showPage('home')">← Back</button>
+    <div class="checkin-wrap">
+      <div class="page-header">
+        <h2>Borrow a Charger</h2>
+        <p>Select what you need and we'll match you with a nearby renter.</p>
+      </div>
+      <div class="warning-box">
+        <span class="ib-icon">⚠️</span>
+        <div><strong>Important:</strong> After receiving the charger, you must upload a photo of it in the condition you received it. Failure to do so will freeze your account.</div>
+      </div>
+      <div class="form-card">
+        <h3>Select Charger Type</h3>
+        <div class="charger-type-opts">
+          <div class="type-opt" onclick="selectType(this,'type-c')">
+            <span class="type-opt-icon">🔌</span>
+            <div>
+              <div class="type-opt-name">USB-C</div>
+              <div class="type-opt-detail">৳15 flat</div>
+            </div>
+          </div>
+          <div class="type-opt" onclick="selectType(this,'lightning')">
+            <span class="type-opt-icon">⚡</span>
+            <div>
+              <div class="type-opt-name">Lightning (Apple)</div>
+              <div class="type-opt-detail">৳20 flat</div>
+            </div>
+          </div>
+          <div class="type-opt" onclick="selectType(this,'type-b')">
+            <span class="type-opt-icon">🔋</span>
+            <div>
+              <div class="type-opt-name">Micro USB</div>
+              <div class="type-opt-detail">৳10 flat</div>
+            </div>
+          </div>
+          <div class="type-opt" onclick="selectType(this,'laptop')">
+            <span class="type-opt-icon">💻</span>
+            <div>
+              <div class="type-opt-name">Laptop Round Pin</div>
+              <div class="type-opt-detail">৳40 flat</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="form-card">
+        <h3>Your Details</h3>
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" placeholder="e.g. Rafiq Ahmed" id="borrow-name">
+        </div>
+        <div class="form-group">
+          <label>Student ID</label>
+          <input type="text" placeholder="e.g. 222-15-1234" id="borrow-id">
+        </div>
+        <div class="form-group">
+          <label>Phone Number</label>
+          <input type="tel" placeholder="+880 1X..." id="borrow-phone">
+        </div>
+        <div class="form-group">
+          <label>Current Location on Campus</label>
+          <input type="text" placeholder="e.g. Main Building, Room 505" id="borrow-loc">
+        </div>
+        <button class="btn-primary" style="width:100%;display:block;" onclick="submitBorrow()">Find Me a Charger →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PHOTO CONFIRM PAGE ============ -->
+<div id="page-photo-confirm" class="page">
+  <div class="page-wrap">
+    <div class="checkin-wrap">
+      <div class="page-header">
+        <h2>Confirm Charger Condition</h2>
+        <p>You must upload a photo of the charger as you received it. This protects both you and the renter.</p>
+      </div>
+      <div class="info-box">
+        <span class="ib-icon">📸</span>
+        <div>Take a clear photo showing the charger and cable condition right now, before using it.</div>
+      </div>
+      <div class="form-card">
+        <h3>Upload Photo</h3>
+        <div class="photo-upload" onclick="document.getElementById('confirm-photo').click()">
+          <input type="file" id="confirm-photo" accept="image/*" onchange="previewPhoto(this,'confirm-preview')">
+          <div class="photo-upload-icon">📷</div>
+          <p>Tap to take a photo or upload from gallery</p>
+          <span>Required — your account will be frozen without this</span>
+          <div class="photo-preview" id="confirm-preview">
+            <img id="confirm-preview-img" src="" alt="Preview">
+          </div>
+        </div>
+        <button class="btn-primary" style="width:100%;display:block;margin-top:18px;" onclick="submitConfirmPhoto()">Submit &amp; Confirm Borrow</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ BORROW SUCCESS ============ -->
+<div id="page-borrow-success" class="page">
+  <div class="page-wrap">
+    <div class="success-screen">
+      <div class="success-icon">✅</div>
+      <h2>You're all set!</h2>
+      <p>Your borrow has been confirmed and logged. Return the charger to the renter when done. Enjoy your charge!</p>
+      <button class="btn-primary" onclick="showPage('home')">Back to Home</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ RENTER REGISTER ============ -->
+<div id="page-renter-register" class="page">
+  <div class="page-wrap">
+    <button class="back-btn" onclick="showPage('home')">← Back</button>
+    <div class="page-header">
+      <h2>List Your Charger</h2>
+      <p>Register as a renter for today, a week, or a month. Zero commission — all income is yours.</p>
+    </div>
+
+    <div class="form-card">
+      <h3>Subscription Plan</h3>
+      <div class="subscription-options">
+        <div class="sub-opt" onclick="selectSub(this,'day')">
+          <div class="duration">Day Pass</div>
+          <div class="sub-price">৳20</div>
+          <div class="sub-desc">Valid for today only</div>
+        </div>
+        <div class="sub-opt selected" onclick="selectSub(this,'week')">
+          <div class="duration">Weekly</div>
+          <div class="sub-price">৳80</div>
+          <div class="sub-desc">7-day listing access</div>
+        </div>
+        <div class="sub-opt" onclick="selectSub(this,'month')">
+          <div class="duration">Monthly</div>
+          <div class="sub-price">৳250</div>
+          <div class="sub-desc">30-day listing access</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-card">
+      <h3>Your Info</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" placeholder="Your name" id="rent-name">
+        </div>
+        <div class="form-group">
+          <label>Student / Staff ID</label>
+          <input type="text" placeholder="222-15-xxxx" id="rent-id">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Phone Number</label>
+        <input type="tel" placeholder="+880 1X..." id="rent-phone">
+      </div>
+    </div>
+
+    <div class="form-card">
+      <h3>Charger Details</h3>
+      <div class="form-group">
+        <label>Charger Type</label>
+        <select id="rent-type">
+          <option value="">Select type...</option>
+          <option value="type-c">USB-C</option>
+          <option value="lightning">Lightning (Apple)</option>
+          <option value="type-b">Micro USB (Type B)</option>
+          <option value="laptop">Laptop Round Pin</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Brand / Model</label>
+          <input type="text" placeholder="e.g. Anker 65W" id="rent-model">
+        </div>
+        <div class="form-group">
+          <label>Price per Borrow (৳)</label>
+          <input type="number" placeholder="e.g. 15" id="rent-price">
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Your Location Today</label>
+        <input type="text" placeholder="e.g. Block B, 4th Floor Lounge" id="rent-location">
+      </div>
+      <div class="form-group">
+        <label>Charger Photo</label>
+        <div class="photo-upload" onclick="document.getElementById('rent-photo').click()">
+          <input type="file" id="rent-photo" accept="image/*" onchange="previewPhoto(this,'rent-preview')">
+          <div class="photo-upload-icon">📸</div>
+          <p>Upload a clear photo of your charger</p>
+          <span>Helps borrowers verify condition</span>
+          <div class="photo-preview" id="rent-preview">
+            <img id="rent-preview-img" src="" alt="Preview">
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Additional Notes (optional)</label>
+        <textarea placeholder="Any conditions, cable length, etc." id="rent-notes"></textarea>
+      </div>
+      <button class="btn-primary" style="width:100%;display:block;" onclick="submitRenterListing()">Publish My Listing →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ RENTER DASHBOARD ============ -->
+<div id="page-renter-dashboard" class="page">
+  <div class="page-wrap">
+    <button class="back-btn" onclick="showPage('home')">← Back</button>
+    <div class="page-header">
+      <h2 id="dash-name">Your Dashboard</h2>
+      <p>Manage your listing and track earnings.</p>
+    </div>
+    <div class="dashboard-stats">
+      <div class="stat-card">
+        <div class="stat-label">Total Earned</div>
+        <div class="stat-val">৳0</div>
+        <div class="stat-sub">This period</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Borrows Today</div>
+        <div class="stat-val">0</div>
+        <div class="stat-sub">Requests</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Subscription</div>
+        <div class="stat-val" id="dash-sub">Weekly</div>
+        <div class="stat-sub">Active</div>
+      </div>
+    </div>
+    <div class="toggle-section">
+      <div>
+        <h4>I'm available now</h4>
+        <p>Let borrowers see your listing as live</p>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" checked>
+        <span class="slider-toggle"></span>
+      </label>
+    </div>
+    <div class="form-card" id="dash-listing-preview">
+      <h3>Your Active Listing</h3>
+      <div id="dash-listing-body" style="font-size:14px;color:var(--muted);line-height:1.7;"></div>
+    </div>
+    <button class="btn-outline" onclick="showPage('home')" style="margin-top:8px;">Back to Home</button>
+  </div>
+</div>
+
+<!-- ============ CLOSED SCREEN ============ -->
+<div id="page-closed" class="page">
+  <div class="page-wrap">
+    <div class="success-screen">
+      <div class="success-icon">🌙</div>
+      <h2>Service is closed</h2>
+      <p>ChargeDIU is available <strong>8:00 AM to 8:00 PM</strong> on campus days. Come back tomorrow!</p>
+      <button class="btn-primary" onclick="showPage('home')">Back to Home</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <strong>ChargeDIU</strong> · Campus Charger Sharing Network · Daffodil International University<br>
+  <span style="font-size:11px;margin-top:4px;display:block">Service hours: 8:00 AM – 8:00 PM · No commission on renter earnings</span>
+</footer>
+
+<script>
+  // ---- Sample listings data ----
+  const LISTINGS = [
+    { id:1, type:'type-c', name:'Anker USB-C 65W', location:'Main Building, 5th Floor', price:15, icon:'🔌', active:true },
+    { id:2, type:'lightning', name:'Apple Lightning 20W', location:'Block A, Library', price:20, icon:'⚡', active:true },
+    { id:3, type:'laptop', name:'Dell 65W Barrel', location:'Cafeteria', price:40, icon:'💻', active:true },
+    { id:4, type:'type-b', name:'Samsung Micro USB', location:'Block B, Lounge', price:10, icon:'🔋', active:true },
+    { id:5, type:'type-c', name:'Baseus PD 45W', location:'Ground Floor Lobby', price:15, icon:'🔌', active:true },
+    { id:6, type:'lightning', name:'Belkin Lightning 18W', location:'Admin Block', price:20, icon:'⚡', active:false },
+  ];
+
+  let currentFilter = 'all';
+  let selectedTypeForBorrow = null;
+  let selectedSub = 'week';
+  let renterData = {};
+
+  function isServiceOpen() {
+    const now = new Date();
+    const h = now.getHours();
+    return h >= 8 && h < 20;
+  }
+
+  function updateStatusBar() {
+    const bar = document.getElementById('status-bar');
+    const dot = document.getElementById('status-dot');
+    const txt = document.getElementById('status-text');
+    if (isServiceOpen()) {
+      bar.classList.remove('closed');
+      dot.className = 'dot-open';
+      txt.textContent = 'Service is live · 8:00 AM – 8:00 PM';
+    } else {
+      bar.classList.add('closed');
+      dot.className = 'dot-closed';
+      txt.textContent = 'Service is closed · Opens at 8:00 AM';
+    }
+  }
+
+  function showPage(id) {
+    if ((id === 'borrower-checkin' || id === 'browse') && !isServiceOpen()) {
+      id = 'closed';
+    }
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    const target = document.getElementById('page-' + id);
+    if (target) target.classList.add('active');
+    window.scrollTo({top:0, behavior:'smooth'});
+    if (id === 'browse') renderListings();
+  }
+
+  function filterAndBrowse(type) {
+    currentFilter = type;
+    showPage('browse');
+  }
+
+  function setFilter(btn, type) {
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentFilter = type;
+    renderListings();
+  }
+
+  function renderListings() {
+    const container = document.getElementById('listings-container');
+    const filtered = currentFilter === 'all'
+      ? LISTINGS
+      : LISTINGS.filter(l => l.type === currentFilter);
+    container.innerHTML = filtered.map(l => `
+      <div class="listing-card">
+        <div class="listing-img">${l.icon}</div>
+        <div class="listing-body">
+          <div class="listing-type">${typeLabel(l.type)}</div>
+          <div class="listing-name">${l.name}</div>
+          <div class="listing-loc"><span class="${l.active ? 'online-dot' : ''}" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${l.active ? 'var(--accent)' : '#ccc'};margin-right:4px;"></span>${l.location}</div>
+          <div class="listing-price-row">
+            <div class="listing-price">৳${l.price} <span>flat</span></div>
+            ${l.active ? `<button class="btn-borrow" onclick="startBorrowFlow(${l.id})">Borrow</button>` : '<span style="font-size:12px;color:var(--muted)">Unavailable</span>'}
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function typeLabel(t) {
+    return {
+      'type-c':'USB-C','lightning':'Lightning','type-b':'Micro USB','laptop':'Laptop Round'
+    }[t] || t;
+  }
+
+  function startBorrowFlow(listingId) {
+    if (!isServiceOpen()) { showPage('closed'); return; }
+    showPage('borrower-checkin');
+  }
+
+  function selectType(el, type) {
+    document.querySelectorAll('.type-opt').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedTypeForBorrow = type;
+  }
+
+  function submitBorrow() {
+    const name = document.getElementById('borrow-name').value.trim();
+    const id = document.getElementById('borrow-id').value.trim();
+    if (!name || !id) { alert('Please fill in your name and student ID.'); return; }
+    if (!selectedTypeForBorrow) { alert('Please select a charger type.'); return; }
+    showPage('photo-confirm');
+  }
+
+  function previewPhoto(input, previewId) {
+    const preview = document.getElementById(previewId);
+    const imgEl = document.getElementById(previewId + '-img');
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        imgEl.src = e.target.result;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+
+  function submitConfirmPhoto() {
+    const photo = document.getElementById('confirm-photo');
+    if (!photo.files || !photo.files[0]) {
+      alert('You must upload a photo of the charger condition to proceed. Your account will be frozen otherwise.');
+      return;
+    }
+    showPage('borrow-success');
+  }
+
+  function selectSub(el, type) {
+    document.querySelectorAll('.sub-opt').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedSub = type;
+  }
+
+  function submitRenterListing() {
+    const name = document.getElementById('rent-name').value.trim();
+    const type = document.getElementById('rent-type').value;
+    const location = document.getElementById('rent-location').value.trim();
+    const price = document.getElementById('rent-price').value;
+    if (!name || !type || !location || !price) {
+      alert('Please fill in all required fields.'); return;
+    }
+    renterData = { name, type, location, price, sub: selectedSub };
+
+    const subLabels = { day:'Day Pass', week:'Weekly', month:'Monthly' };
+    document.getElementById('dash-name').textContent = name + "'s Dashboard";
+    document.getElementById('dash-sub').textContent = subLabels[selectedSub];
+    document.getElementById('dash-listing-body').innerHTML = `
+      <p><strong>Type:</strong> ${typeLabel(type)}</p>
+      <p><strong>Price:</strong> ৳${price} per borrow</p>
+      <p><strong>Location:</strong> ${location}</p>
+      <p><strong>Plan:</strong> ${subLabels[selectedSub]}</p>
+    `;
+    showPage('renter-dashboard');
+  }
+
+  // Init
+  updateStatusBar();
+  setInterval(updateStatusBar, 60000);
+</script>
+</body>
+</html>
